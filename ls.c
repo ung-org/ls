@@ -17,6 +17,7 @@
  *
  */
 
+#define _XOPEN_SOURCE 700
 #include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -540,6 +541,10 @@ main (int argc, char **argv)
       default:
         return 1;
     }
+  }
+
+  if (!isatty(STDOUT_FILENO)) {
+    display = SINGLE;
   }
   
   if (optind >= argc) {
