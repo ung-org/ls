@@ -22,6 +22,7 @@
  * SOFTWARE.
  */
 
+#define _XOPEN_SOURCE 700
 #include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -40,30 +41,26 @@
 #define ARG_MAX 512
 #endif
 
-#ifndef FTW_CONTINUE
-#define FTW_CONTINUE 1
-#define FTW_SKIP_SUBTREE 2
-#endif
-
-const char *ls_desc = "list directory contents";
-const char *ls_inv = "ls [-ACFRSacdgfiklmnoprstux1] [-H|-L] [file...]";
-
 #define NONE 0
 #define ALL 1
 #define ALMOST 2
 
-#define ALPHA 0
-#define SIZE 1
-#define DIRECTORY 2
-#define CTIME 3
-#define MTIME 4
-#define ATIME 5
+static enum {
+	ALPHA,
+	SIZE,
+	DIRECTORY,
+	CTIME,
+	MTIME,
+	ATIME,
+} sort = ALPHA;
 
-#define DCOLUMNS 1
-#define DLONG 2
-#define COMMA 3
-#define ROWS 4
-#define SINGLE 5
+static enum {
+	COLUMNS,
+	ROWS,
+	COMMA,
+	LONG,
+	SINGLE,
+} display = COLUMNS;
 
 #define CHARACTER 1 << 0
 #define INODES 1 << 1
@@ -77,10 +74,8 @@ const char *ls_inv = "ls [-ACFRSacdgfiklmnoprstux1] [-H|-L] [file...]";
 #define DEFAULT_BLOCK_SIZE 512
 
 static int all = NONE;
-static int display = DCOLUMNS;
 static int format = NONE;
 static int links = NONE;
-static int sort = ALPHA;
 static int recurse = 0;
 static int listdirs = 0;
 static int noowner = 0;
@@ -113,7 +108,7 @@ struct ls_entry {
 
 static struct ls_entry *root = NULL;
 static int biggest = 1;
-static int maxlinks = 1;
+static nlink_t maxlinks = 1;
 static int longestowner = 1;
 static int longestgroup = 1;
 static int longestname = 1;
@@ -183,7 +178,7 @@ static int ls_other(struct ls_entry *current, int cpos)
 		cpos += printf("%u ", (unsigned int)current->inode);
 	}
 
-	if (display == DLONG) {
+	if (display == LONG) {
 		while (biggest /= 10)
 			sizelen++;
 		while (maxlinks /= 10)
@@ -302,7 +297,7 @@ static int ls_add(const char *path, int do_stat)
 	memset(working->owner, 0, PATH_MAX);
 	memset(working->group, 0, PATH_MAX);
 
-	if (do_stat == 1 || sort != NONE || display == DLONG || recurse ||
+	if (do_stat == 1 || sort != NONE || display == LONG || recurse ||
 	    (format & CHARACTER || format & INODES || format & DIRS
 	     || format & BLOCKS)) {
 		ls_stat(path, &st);
@@ -445,7 +440,7 @@ static int ls_dir(char *dir)
 	int blocks = 0;
 	char filename[PATH_MAX];
 
-	while (de = readdir(d)) {
+	while ((de = readdir(d)) != NULL) {
 		if (de->d_name[0] != '.' || (de->d_name[0] == '.' && all == ALL)
 		    || (strcmp(".", de->d_name) && strcmp("..", de->d_name)
 			&& all == ALMOST)) {
@@ -461,10 +456,10 @@ static int ls_dir(char *dir)
 
 static void ls_print(struct ls_entry *c)
 {
-	if (display == DCOLUMNS) {
+	if (display == COLUMNS) {
 		if (ls_columns(c, 0) != 0)
 			putchar('\n');
-	} else if (ls_other(c, 0) != 0 && display != DLONG && display != SINGLE) {
+	} else if (ls_other(c, 0) != 0 && display != LONG && display != SINGLE) {
 		putchar('\n');
 	}
 }
@@ -486,7 +481,7 @@ int main(int argc, char **argv)
 			all = ALMOST;
 			break;
 		case 'C':
-			display = DCOLUMNS;
+			display = COLUMNS;
 			break;
 		case 'F':
 			format |= CHARACTER;
@@ -524,7 +519,7 @@ int main(int argc, char **argv)
 			recurse = 0;
 			break;
 		case 'g':
-			display = DLONG;
+			display = LONG;
 			noowner = 1;
 			break;
 		case 'i':
@@ -534,17 +529,17 @@ int main(int argc, char **argv)
 			blocksize = 1024;
 			break;
 		case 'l':
-			display = DLONG;
+			display = LONG;
 			break;
 		case 'm':
 			display = COMMA;
 			break;
 		case 'n':
-			display = DLONG;
+			display = LONG;
 			numeric = 1;
 			break;
 		case 'o':
-			display = DLONG;
+			display = LONG;
 			nogroup = 1;
 			break;
 		case 'p':
@@ -618,7 +613,7 @@ int main(int argc, char **argv)
 
 		if (f > 0 || totaldirs > 1)
 			printf("%s:\n", dirlist[i].display);
-		if (display == DLONG || format & BLOCKS)
+		if (display == LONG || format & BLOCKS)
 			printf("total %u\n", total);
 
 		ls_print(root);
