@@ -41,7 +41,7 @@
 #endif
 
 const char *ls_desc = "list directory contents";
-const char *ls_inv  = "ls [-ACFRSacdgfiklmnoprstux1] [-H|-L] [file...]";
+const char *ls_inv = "ls [-ACFRSacdgfiklmnoprstux1] [-H|-L] [file...]";
 
 #define NONE 0
 #define ALL 1
@@ -82,28 +82,28 @@ static int noowner = 0;
 static int blocksize = DEFAULT_BLOCK_SIZE;
 static int numeric = 0;
 static int nogroup = 0;
-static int reverse = 0; 
+static int reverse = 0;
 static int totaldirs = 0;
 static int columns = 80;
 
 struct ls_entry {
-  char name[PATH_MAX];
-  off_t size;
-  ino_t inode;
-  time_t time;
-  uid_t uid;
-  gid_t gid;
-  char owner[PATH_MAX];
-  char group[PATH_MAX];
-  nlink_t links;
-  blkcnt_t blocks;
-  mode_t mode;
-  char link[PATH_MAX];
-  char type;
-  int isexec;
-  struct ls_entry *left;
-  struct ls_entry *right;
-  struct ls_entry *up;
+	char name[PATH_MAX];
+	off_t size;
+	ino_t inode;
+	time_t time;
+	uid_t uid;
+	gid_t gid;
+	char owner[PATH_MAX];
+	char group[PATH_MAX];
+	nlink_t links;
+	blkcnt_t blocks;
+	mode_t mode;
+	char link[PATH_MAX];
+	char type;
+	int isexec;
+	struct ls_entry *left;
+	struct ls_entry *right;
+	struct ls_entry *up;
 };
 
 static struct ls_entry *root = NULL;
@@ -111,489 +111,518 @@ static int biggest = 1;
 static int maxlinks = 1;
 static int longestowner = 1;
 static int longestgroup = 1;
-static int longestname  = 1;
+static int longestname = 1;
 static int sizelen = 1;
 static int linklen = 1;
 
 struct directory {
-  char display[PATH_MAX];
-  char path[PATH_MAX];
+	char display[PATH_MAX];
+	char path[PATH_MAX];
 };
 
 static struct directory dirlist[ARG_MAX];
 
-int nftw_ls (const char *p, const struct stat *sb, int flag, struct FTW *f)
+int nftw_ls(const char *p, const struct stat *sb, int flag, struct FTW *f)
 {
-  if (flag == FTW_D) {
-    strcat (dirlist[totaldirs].path, p);
-    // FIXME: this is showing the wrong names
-    if (f->level > 0)
-      f->base--;
-    while (f->level >= 0) {
-      f->base--;
-      if (p[f->base] == '/')
-        f->level--;
-    }
-    strcat (dirlist[totaldirs].display, &p[f->base]);
-    totaldirs++;
-  }
-  return 0;
+	if (flag == FTW_D) {
+		strcat(dirlist[totaldirs].path, p);
+		// FIXME: this is showing the wrong names
+		if (f->level > 0)
+			f->base--;
+		while (f->level >= 0) {
+			f->base--;
+			if (p[f->base] == '/')
+				f->level--;
+		}
+		strcat(dirlist[totaldirs].display, &p[f->base]);
+		totaldirs++;
+	}
+	return 0;
 }
 
-static int ls_stat (const char *p, struct stat *st)
+static int ls_stat(const char *p, struct stat *st)
 {
-  // FIXME fracking -L and -H
-  if (links == NONE)
-    return lstat (p, st);
-  return stat (p, st);
+	// FIXME fracking -L and -H
+	if (links == NONE)
+		return lstat(p, st);
+	return stat(p, st);
 }
 
-void ls_reset (void)
+void ls_reset(void)
 {
-  root = NULL;
-  biggest = 1;
-  maxlinks = 1;
-  longestowner = 1;
-  longestgroup = 1;
-  longestname = 1;
-  sizelen = 1;
-  linklen = 1;
+	root = NULL;
+	biggest = 1;
+	maxlinks = 1;
+	longestowner = 1;
+	longestgroup = 1;
+	longestname = 1;
+	sizelen = 1;
+	linklen = 1;
 }
 
-static int ls_other (struct ls_entry *current, int cpos)
+static int ls_other(struct ls_entry *current, int cpos)
 {
-  char umode[4], gmode[4], omode[4];
-  char time[BUFSIZ];
+	char umode[4], gmode[4], omode[4];
+	char time[BUFSIZ];
 
-  if (current == NULL)
-    return 0;
+	if (current == NULL)
+		return 0;
 
-  if (current->left != NULL) {
-    cpos = ls_other (current->left, cpos);
-    free (current->left);
-    current->left = NULL;
-  }
+	if (current->left != NULL) {
+		cpos = ls_other(current->left, cpos);
+		free(current->left);
+		current->left = NULL;
+	}
 
-  if (format & INODES) {
-    cpos += printf ("%u ", (unsigned int)current->inode);
-  }
+	if (format & INODES) {
+		cpos += printf("%u ", (unsigned int)current->inode);
+	}
 
-  if (display == DLONG) {
-    while (biggest /= 10)
-      sizelen++;
-    while (maxlinks /= 10)
-      linklen++;
+	if (display == DLONG) {
+		while (biggest /= 10)
+			sizelen++;
+		while (maxlinks /= 10)
+			linklen++;
 
-    umode[0] = (S_IRUSR & current->mode) ? 'r' : '-';
-    umode[1] = (S_IWUSR & current->mode) ? 'w' : '-';
-    if (S_ISUID & current->mode)
-      umode[2] = (S_IXUSR & current->mode) ? 's' : 'S';
-    else
-      umode[2] = (S_IXUSR & current->mode) ? 'x' : '-';
-    umode[3] = '\0';
-    gmode[0] = (S_IRGRP & current->mode) ? 'r' : '-';
-    gmode[1] = (S_IWGRP & current->mode) ? 'w' : '-';
-    if (S_ISGID & current->mode)
-      gmode[2] = (S_IXGRP & current->mode) ? 's' : 'S';
-    else
-      gmode[2] = (S_IXGRP & current->mode) ? 'x' : '-';
-    gmode[3] = '\0';
-    omode[0] = (S_IROTH & current->mode) ? 'r' : '-';
-    omode[1] = (S_IWOTH & current->mode) ? 'w' : '-';
-    if (S_ISVTX & current->mode)
-      omode[2] = (S_IXOTH & current->mode) ? 't' : 'T';
-    else
-      omode[2] = (S_IXOTH & current->mode) ? 'x' : '-';
-    omode[3] = '\0';
-    strftime (time, BUFSIZ, "%b %e %H:%M", localtime(&(current->time)));
-    // over six months user "%b %e %Y"
+		umode[0] = (S_IRUSR & current->mode) ? 'r' : '-';
+		umode[1] = (S_IWUSR & current->mode) ? 'w' : '-';
+		if (S_ISUID & current->mode)
+			umode[2] = (S_IXUSR & current->mode) ? 's' : 'S';
+		else
+			umode[2] = (S_IXUSR & current->mode) ? 'x' : '-';
+		umode[3] = '\0';
+		gmode[0] = (S_IRGRP & current->mode) ? 'r' : '-';
+		gmode[1] = (S_IWGRP & current->mode) ? 'w' : '-';
+		if (S_ISGID & current->mode)
+			gmode[2] = (S_IXGRP & current->mode) ? 's' : 'S';
+		else
+			gmode[2] = (S_IXGRP & current->mode) ? 'x' : '-';
+		gmode[3] = '\0';
+		omode[0] = (S_IROTH & current->mode) ? 'r' : '-';
+		omode[1] = (S_IWOTH & current->mode) ? 'w' : '-';
+		if (S_ISVTX & current->mode)
+			omode[2] = (S_IXOTH & current->mode) ? 't' : 'T';
+		else
+			omode[2] = (S_IXOTH & current->mode) ? 'x' : '-';
+		omode[3] = '\0';
+		strftime(time, BUFSIZ, "%b %e %H:%M",
+			 localtime(&(current->time)));
+		// over six months user "%b %e %Y"
 
-    printf ("%c%s%s%s ", current->type, umode, gmode, omode);
-    printf ("%*u ", linklen, (unsigned int)current->links);
+		printf("%c%s%s%s ", current->type, umode, gmode, omode);
+		printf("%*u ", linklen, (unsigned int)current->links);
 
-    if (!noowner) {
-      if (numeric) printf ("%*u ", longestowner, current->uid);
-      else printf ("%-*s ", longestowner, current->owner);
-    }
+		if (!noowner) {
+			if (numeric)
+				printf("%*u ", longestowner, current->uid);
+			else
+				printf("%-*s ", longestowner, current->owner);
+		}
 
-    if (!nogroup) {
-      if (numeric) printf ("%*u ", longestowner, current->gid);
-      else printf ("%-*s ", longestgroup, current->group);
-    }
+		if (!nogroup) {
+			if (numeric)
+				printf("%*u ", longestowner, current->gid);
+			else
+				printf("%-*s ", longestgroup, current->group);
+		}
 
-    printf ("%*u ", sizelen, (unsigned int)current->size);
-    printf ("%s %s", time, current->name);
+		printf("%*u ", sizelen, (unsigned int)current->size);
+		printf("%s %s", time, current->name);
 
-    if (links != LLONG && current->type == 'l')
-      printf (" -> %s", current->link);
+		if (links != LLONG && current->type == 'l')
+			printf(" -> %s", current->link);
 
-    putchar ('\n');
-  } else if (display == COMMA) {
-    if (cpos + strlen (current->name) + 2 > columns) {
-      putchar ('\n');
-      cpos = 0;
-    }
-    cpos += printf ("%s, ", current->name);
-  } else if (display == SINGLE) {
-    printf ("%s\n", current->name);
-  } else { 			// if (display == ROWS) {
-    cpos += printf ("%-*s ", longestname, current->name);
-    if (cpos + longestname + 1 > columns) {
-      putchar ('\n');
-      cpos = 0;
-    }
-  }
+		putchar('\n');
+	} else if (display == COMMA) {
+		if (cpos + strlen(current->name) + 2 > columns) {
+			putchar('\n');
+			cpos = 0;
+		}
+		cpos += printf("%s, ", current->name);
+	} else if (display == SINGLE) {
+		printf("%s\n", current->name);
+	} else {		// if (display == ROWS) {
+		cpos += printf("%-*s ", longestname, current->name);
+		if (cpos + longestname + 1 > columns) {
+			putchar('\n');
+			cpos = 0;
+		}
+	}
 
-  if (current->right != NULL) {
-    cpos = ls_other (current->right, cpos);
-    free (current->right);
-    current->right = NULL;
-  }
+	if (current->right != NULL) {
+		cpos = ls_other(current->right, cpos);
+		free(current->right);
+		current->right = NULL;
+	}
 
-  return cpos;
+	return cpos;
 }
 
-static int ls_columns (struct ls_entry *current, int cpos)
+static int ls_columns(struct ls_entry *current, int cpos)
 {
-  int cols = columns / (longestname + 1);
-  int row = 0;
-  // FIXME: this isn't right at all
-  
-  return ls_other (current, cpos);
+	int cols = columns / (longestname + 1);
+	int row = 0;
+	// FIXME: this isn't right at all
+
+	return ls_other(current, cpos);
 }
 
-static int ls_compare (struct ls_entry *e1, struct ls_entry *e2)
+static int ls_compare(struct ls_entry *e1, struct ls_entry *e2)
 {
-  if (sort == SIZE && e1->size != e2->size) {
-    return (reverse ? -1 : 1) * (e2->size - e1->size);
-  } else if ((sort == CTIME || sort == MTIME || sort == ATIME)
-              && e1->time != e2->time) {
-    return (reverse ? -1 : 1) * (e2->time - e1->time);
-  } else if (sort == DIRECTORY) {
-    return (reverse ? -1 : 1);
-  }
-  return (reverse ? -1 : 1) * (strcmp (e1->name, e2->name));
+	if (sort == SIZE && e1->size != e2->size) {
+		return (reverse ? -1 : 1) * (e2->size - e1->size);
+	} else if ((sort == CTIME || sort == MTIME || sort == ATIME)
+		   && e1->time != e2->time) {
+		return (reverse ? -1 : 1) * (e2->time - e1->time);
+	} else if (sort == DIRECTORY) {
+		return (reverse ? -1 : 1);
+	}
+	return (reverse ? -1 : 1) * (strcmp(e1->name, e2->name));
 }
 
-static int ls_add (const char *path, int do_stat)
+static int ls_add(const char *path, int do_stat)
 {
-  struct stat st;
-  char dname[PATH_MAX];
-  char lname[PATH_MAX];
-  struct ls_entry *working = malloc (sizeof (struct ls_entry));
-  struct ls_entry *current;
-  working->left = NULL;
-  working->right = NULL;
-  working->blocks = 0;
+	struct stat st;
+	char dname[PATH_MAX];
+	char lname[PATH_MAX];
+	struct ls_entry *working = malloc(sizeof(struct ls_entry));
+	struct ls_entry *current;
+	working->left = NULL;
+	working->right = NULL;
+	working->blocks = 0;
 
-  strcpy (dname, basename((char*)path));
-  memset (working->name, 0, PATH_MAX);
-  memset (working->link, 0, PATH_MAX);
-  memset (working->owner, 0, PATH_MAX);
-  memset (working->group, 0, PATH_MAX);
-  
-  if (do_stat == 1 || sort != NONE || display == DLONG || recurse ||
-     (format & CHARACTER || format & INODES || format & DIRS || format & BLOCKS))
-  {
-    ls_stat (path, &st);
+	strcpy(dname, basename((char *)path));
+	memset(working->name, 0, PATH_MAX);
+	memset(working->link, 0, PATH_MAX);
+	memset(working->owner, 0, PATH_MAX);
+	memset(working->group, 0, PATH_MAX);
 
-    if (S_ISDIR (st.st_mode)) working->type = 'd';
-    else if (S_ISLNK (st.st_mode)) working->type = 'l';
-    else if (S_ISBLK (st.st_mode)) working->type = 'b';
-    else if (S_ISCHR (st.st_mode)) working->type = 'c';
-    else if (S_ISFIFO (st.st_mode)) working->type = 'p';
-    else working->type = '-';
+	if (do_stat == 1 || sort != NONE || display == DLONG || recurse ||
+	    (format & CHARACTER || format & INODES || format & DIRS
+	     || format & BLOCKS)) {
+		ls_stat(path, &st);
 
-    working->size = st.st_size;
-    working->inode = st.st_ino;
-    working->links = st.st_nlink;
-    working->uid = st.st_uid;
-    working->gid = st.st_gid;
-    working->blocks = st.st_blocks;
-    working->mode = st.st_mode;
+		if (S_ISDIR(st.st_mode))
+			working->type = 'd';
+		else if (S_ISLNK(st.st_mode))
+			working->type = 'l';
+		else if (S_ISBLK(st.st_mode))
+			working->type = 'b';
+		else if (S_ISCHR(st.st_mode))
+			working->type = 'c';
+		else if (S_ISFIFO(st.st_mode))
+			working->type = 'p';
+		else
+			working->type = '-';
 
-    if (sort == CTIME) working->time = st.st_ctime;
-    else if (sort == ATIME) working->time = st.st_atime;
-    else working->time = st.st_mtime;
+		working->size = st.st_size;
+		working->inode = st.st_ino;
+		working->links = st.st_nlink;
+		working->uid = st.st_uid;
+		working->gid = st.st_gid;
+		working->blocks = st.st_blocks;
+		working->mode = st.st_mode;
 
-    if (working->size > biggest) biggest = working->size;
-    if (working->links > maxlinks) maxlinks = working->links;
+		if (sort == CTIME)
+			working->time = st.st_ctime;
+		else if (sort == ATIME)
+			working->time = st.st_atime;
+		else
+			working->time = st.st_mtime;
 
-    if (!numeric) {
-      struct passwd pw = *getpwuid (working->uid);
-      struct group gr = *getgrgid (working->gid);
-      strcpy (working->owner, pw.pw_name);
-      strcpy (working->group, gr.gr_name);
-      if (strlen (working->owner) > longestowner)
-        longestowner = strlen (working->owner);
-      if (strlen (working->group) > longestgroup)
-        longestgroup = strlen (working->group);
-    } else {
-      int l, n = 0;
-      for (l = working->uid; l > 0; l /= 10) n++;
-      if (n > longestowner) longestowner = n;
-      for (l = working->gid; l > 0; l /= 10) n++;
-      if (n > longestgroup) longestgroup = n;
-    }
+		if (working->size > biggest)
+			biggest = working->size;
+		if (working->links > maxlinks)
+			maxlinks = working->links;
 
-    if (working->type == '-')
-      working->isexec = (access (path, X_OK) == 0 ? 1 : 0);
+		if (!numeric) {
+			struct passwd pw = *getpwuid(working->uid);
+			struct group gr = *getgrgid(working->gid);
+			strcpy(working->owner, pw.pw_name);
+			strcpy(working->group, gr.gr_name);
+			if (strlen(working->owner) > longestowner)
+				longestowner = strlen(working->owner);
+			if (strlen(working->group) > longestgroup)
+				longestgroup = strlen(working->group);
+		} else {
+			int l, n = 0;
+			for (l = working->uid; l > 0; l /= 10)
+				n++;
+			if (n > longestowner)
+				longestowner = n;
+			for (l = working->gid; l > 0; l /= 10)
+				n++;
+			if (n > longestgroup)
+				longestgroup = n;
+		}
 
-    if (working->type == 'd' && (format & DIRS || format & CHARACTER))
-      strcat (dname, "/");
-    else if (format & CHARACTER) {
-      if (working->type == 'l') strcat (dname, "@");
-      else if (working->type == 'p') strcat (dname, "|");
-      else if (working->isexec) strcat (dname, "*");
-    }
+		if (working->type == '-')
+			working->isexec = (access(path, X_OK) == 0 ? 1 : 0);
 
-    if (working->type == 'l') {
-      // FIXME: maybe do a chdir() here so relative symlinks resolve proerly
-      int n = 0;
-      memset (lname, 0, PATH_MAX);
-      n = readlink (path, lname, PATH_MAX);
-      stat (lname, &st);
-      if (S_ISDIR(st.st_mode) && (format & DIRS || format & CHARACTER)) {
-        lname[n] = '/';
-      } else if (format & CHARACTER) {
-        if (S_ISLNK(st.st_mode)) lname[n] = '@';
-        else if (S_ISFIFO(st.st_mode)) lname[n] = '|';
-        else if (access (lname, X_OK) == 0) lname[n] = '*';
-      }
-      strcpy (working->link, lname);
-    }
-  }
+		if (working->type == 'd'
+		    && (format & DIRS || format & CHARACTER))
+			strcat(dname, "/");
+		else if (format & CHARACTER) {
+			if (working->type == 'l')
+				strcat(dname, "@");
+			else if (working->type == 'p')
+				strcat(dname, "|");
+			else if (working->isexec)
+				strcat(dname, "*");
+		}
 
-  if (recurse && working->type == 'd')  {
-    char fullpath[PATH_MAX];
-    getcwd(fullpath, PATH_MAX);
-    strcat (fullpath, "/");
-    strcat (fullpath, path);
-    nftw (fullpath, nftw_ls, 0, (links != NONE ? 0 : FTW_PHYS));
-  }
+		if (working->type == 'l') {
+			// FIXME: maybe do a chdir() here so relative symlinks resolve proerly
+			int n = 0;
+			memset(lname, 0, PATH_MAX);
+			n = readlink(path, lname, PATH_MAX);
+			stat(lname, &st);
+			if (S_ISDIR(st.st_mode)
+			    && (format & DIRS || format & CHARACTER)) {
+				lname[n] = '/';
+			} else if (format & CHARACTER) {
+				if (S_ISLNK(st.st_mode))
+					lname[n] = '@';
+				else if (S_ISFIFO(st.st_mode))
+					lname[n] = '|';
+				else if (access(lname, X_OK) == 0)
+					lname[n] = '*';
+			}
+			strcpy(working->link, lname);
+		}
+	}
 
-  strcpy (working->name, dname);
+	if (recurse && working->type == 'd') {
+		char fullpath[PATH_MAX];
+		getcwd(fullpath, PATH_MAX);
+		strcat(fullpath, "/");
+		strcat(fullpath, path);
+		nftw(fullpath, nftw_ls, 0, (links != NONE ? 0 : FTW_PHYS));
+	}
 
-  if (strlen (dname) > longestname) { longestname = strlen (dname); }
+	strcpy(working->name, dname);
 
-  if (root == NULL) {
-    root = working;
-  } else {
-    current = root;
-    INSERT:
-    if (ls_compare (current, working) > 0) {
-      if (current->left == NULL) {
-        working->up = current;
-        current->left = working;
-      } else {
-        current = current->left;
-        goto INSERT;
-      }
-    } else {
-      if (current->right == NULL) {
-        working->up = current;
-        current->right = working;
-      } else {
-        current = current->right;
-        goto INSERT;
-      }
-    }
-  }
+	if (strlen(dname) > longestname) {
+		longestname = strlen(dname);
+	}
 
-  return working->blocks;
+	if (root == NULL) {
+		root = working;
+	} else {
+		current = root;
+ INSERT:
+		if (ls_compare(current, working) > 0) {
+			if (current->left == NULL) {
+				working->up = current;
+				current->left = working;
+			} else {
+				current = current->left;
+				goto INSERT;
+			}
+		} else {
+			if (current->right == NULL) {
+				working->up = current;
+				current->right = working;
+			} else {
+				current = current->right;
+				goto INSERT;
+			}
+		}
+	}
+
+	return working->blocks;
 }
 
-static int ls_dir (char *dir)
+static int ls_dir(char *dir)
 {
-  DIR *d = opendir (dir);
-  struct dirent *de;
-  int blocks = 0;
-  char filename[PATH_MAX];
+	DIR *d = opendir(dir);
+	struct dirent *de;
+	int blocks = 0;
+	char filename[PATH_MAX];
 
-  while (de = readdir (d)) {
-    if (de->d_name[0] != '.' || (de->d_name[0] == '.' && all == ALL) ||
-       (strcmp (".", de->d_name) && strcmp ("..", de->d_name) && all == ALMOST))
-    {
-      strcpy (filename, dir);
-      strcat (filename, "/");
-      strcat (filename, de->d_name);
-      blocks += ls_add (filename, 1);
-    }
-  }
-  closedir (d);
-  return blocks * DEFAULT_BLOCK_SIZE / blocksize;
+	while (de = readdir(d)) {
+		if (de->d_name[0] != '.' || (de->d_name[0] == '.' && all == ALL)
+		    || (strcmp(".", de->d_name) && strcmp("..", de->d_name)
+			&& all == ALMOST)) {
+			strcpy(filename, dir);
+			strcat(filename, "/");
+			strcat(filename, de->d_name);
+			blocks += ls_add(filename, 1);
+		}
+	}
+	closedir(d);
+	return blocks * DEFAULT_BLOCK_SIZE / blocksize;
 }
 
-static void ls_print (struct ls_entry *c)
+static void ls_print(struct ls_entry *c)
 {
-  if (display == DCOLUMNS) {
-    if (ls_columns (c, 0) != 0)
-      putchar ('\n');
-  } else if (ls_other (c, 0) != 0 && display != DLONG && display != SINGLE) {
-    putchar ('\n');
-  }
+	if (display == DCOLUMNS) {
+		if (ls_columns(c, 0) != 0)
+			putchar('\n');
+	} else if (ls_other(c, 0) != 0 && display != DLONG && display != SINGLE) {
+		putchar('\n');
+	}
 }
 
-int
-main (int argc, char **argv)
+int main(int argc, char **argv)
 {
-  struct stat st;
-  char *files[ARG_MAX];
-  int c;
-  int i = 0, f = 0;
-  int lastfollow = 0;
-  char *cols = getenv ("COLUMNS");
-  if (cols != NULL)
-    columns = atoi (cols);
+	struct stat st;
+	char *files[ARG_MAX];
+	int c;
+	int i = 0, f = 0;
+	int lastfollow = 0;
+	char *cols = getenv("COLUMNS");
+	if (cols != NULL)
+		columns = atoi(cols);
 
-  while ((c = getopt (argc, argv, ":ACFRSacdgfiklmnoprstux1HL")) != -1) {
-    switch (c) {
-      case 'A':
-        all = ALMOST;
-        break;
-      case 'C':
-        display = DCOLUMNS;
-        break;
-      case 'F':
-        format |= CHARACTER;
-        break;
-      case 'H':
-        if (links != NONE)
-          return 1;
-        links = FOLLOW;
-        break;
-      case 'L':
-        if (links != NONE)
-          return 1;
-        links = LLONG;
-        break;
-      case 'R':
-        recurse = 1;
-        break;
-      case 'S':
-        sort = SIZE;
-        break;
-      case 'a':
-        all = ALL;
-        break;
-      case 'c':
-        sort = CTIME;
-        break;
-      case 'd':
-        listdirs = 1;
-        break;
-      case 'f':
-        sort = DIRECTORY;
-        all = ALL;
-        display = ROWS;
-        format ^= BLOCKS;
-        recurse = 0;
-        break;
-      case 'g':
-        display = DLONG;
-        noowner = 1;
-        break;
-      case 'i':
-        format |= INODES;
-        break;
-      case 'k':
-        blocksize = 1024;
-        break;
-      case 'l':
-        display = DLONG;
-        break;
-      case 'm':
-        display = COMMA;
-        break;
-      case 'n':
-        display = DLONG;
-        numeric = 1;
-        break;
-      case 'o':
-        display = DLONG;
-        nogroup = 1;
-        break;
-      case 'p':
-        format |= DIRS;
-        break;
-      case 'q':
-        format |= QUOTE;		// FIXME
-        break;
-      case 'r':
-        reverse = 1;
-        break;
-      case 's':
-        format |= BLOCKS;		// FIXME
-        break;
-      case 't':
-        sort = MTIME;
-        break;
-      case 'u':
-        sort = ATIME;
-        break;
-      case 'x':
-        display = ROWS;
-        break;
-      case '1':
-        display = SINGLE;
-        break;
-      default:
-        return 1;
-    }
-  }
-  
-  if (optind >= argc) {
-    strcpy(dirlist[0].path, ".");
-    strcpy(dirlist[0].display, ".");
-    totaldirs = 1;
-  }
+	while ((c = getopt(argc, argv, ":ACFRSacdgfiklmnoprstux1HL")) != -1) {
+		switch (c) {
+		case 'A':
+			all = ALMOST;
+			break;
+		case 'C':
+			display = DCOLUMNS;
+			break;
+		case 'F':
+			format |= CHARACTER;
+			break;
+		case 'H':
+			if (links != NONE)
+				return 1;
+			links = FOLLOW;
+			break;
+		case 'L':
+			if (links != NONE)
+				return 1;
+			links = LLONG;
+			break;
+		case 'R':
+			recurse = 1;
+			break;
+		case 'S':
+			sort = SIZE;
+			break;
+		case 'a':
+			all = ALL;
+			break;
+		case 'c':
+			sort = CTIME;
+			break;
+		case 'd':
+			listdirs = 1;
+			break;
+		case 'f':
+			sort = DIRECTORY;
+			all = ALL;
+			display = ROWS;
+			format ^= BLOCKS;
+			recurse = 0;
+			break;
+		case 'g':
+			display = DLONG;
+			noowner = 1;
+			break;
+		case 'i':
+			format |= INODES;
+			break;
+		case 'k':
+			blocksize = 1024;
+			break;
+		case 'l':
+			display = DLONG;
+			break;
+		case 'm':
+			display = COMMA;
+			break;
+		case 'n':
+			display = DLONG;
+			numeric = 1;
+			break;
+		case 'o':
+			display = DLONG;
+			nogroup = 1;
+			break;
+		case 'p':
+			format |= DIRS;
+			break;
+		case 'q':
+			format |= QUOTE;	// FIXME
+			break;
+		case 'r':
+			reverse = 1;
+			break;
+		case 's':
+			format |= BLOCKS;	// FIXME
+			break;
+		case 't':
+			sort = MTIME;
+			break;
+		case 'u':
+			sort = ATIME;
+			break;
+		case 'x':
+			display = ROWS;
+			break;
+		case '1':
+			display = SINGLE;
+			break;
+		default:
+			return 1;
+		}
+	}
 
-  while (optind < argc) {
-    if (ls_stat (argv[optind], &st) != 0) {
-      perror (argv[optind]);
-    } else if (!listdirs && S_ISDIR (st.st_mode)) {
-      strcpy(dirlist[totaldirs].display, argv[optind]);
-      strcpy(dirlist[totaldirs].path, argv[optind]);
-      totaldirs++;
-    } else {
-      files[f] = argv[optind];
-      f++;
-    }
-    optind++;
-  }
+	if (optind >= argc) {
+		strcpy(dirlist[0].path, ".");
+		strcpy(dirlist[0].display, ".");
+		totaldirs = 1;
+	}
 
-  if (links == FOLLOW)
-    lastfollow = totaldirs;
+	while (optind < argc) {
+		if (ls_stat(argv[optind], &st) != 0) {
+			perror(argv[optind]);
+		} else if (!listdirs && S_ISDIR(st.st_mode)) {
+			strcpy(dirlist[totaldirs].display, argv[optind]);
+			strcpy(dirlist[totaldirs].path, argv[optind]);
+			totaldirs++;
+		} else {
+			files[f] = argv[optind];
+			f++;
+		}
+		optind++;
+	}
 
-  for (i = 0; i < f; i++)
-    ls_add (files[i], 0);
+	if (links == FOLLOW)
+		lastfollow = totaldirs;
 
-  ls_print (root);
-  ls_reset ();
+	for (i = 0; i < f; i++)
+		ls_add(files[i], 0);
 
-  if (f > 0 && totaldirs > 0)
-    putchar ('\n');
+	ls_print(root);
+	ls_reset();
 
-  for (i = 0; i < totaldirs; i++) {
-    int total = 0;
+	if (f > 0 && totaldirs > 0)
+		putchar('\n');
 
-    if (i >= lastfollow && links == FOLLOW)
-      links = NONE;
+	for (i = 0; i < totaldirs; i++) {
+		int total = 0;
 
-    total = ls_dir (dirlist[i].path);
+		if (i >= lastfollow && links == FOLLOW)
+			links = NONE;
 
-    if (f > 0 || totaldirs > 1)
-      printf ("%s:\n", dirlist[i].display);
-    if (display == DLONG || format & BLOCKS)
-      printf ("total %u\n", total);   
+		total = ls_dir(dirlist[i].path);
 
-    ls_print (root);
+		if (f > 0 || totaldirs > 1)
+			printf("%s:\n", dirlist[i].display);
+		if (display == DLONG || format & BLOCKS)
+			printf("total %u\n", total);
 
-    if (totaldirs > i + 1)
-      putchar ('\n');
+		ls_print(root);
 
-    ls_reset ();
-  }
+		if (totaldirs > i + 1)
+			putchar('\n');
 
-  return 0;
+		ls_reset();
+	}
+
+	return 0;
 }
