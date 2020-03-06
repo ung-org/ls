@@ -24,6 +24,7 @@
 
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
+#include <stdint.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <dirent.h>
@@ -88,7 +89,7 @@ static int columns = 80;
 
 struct ls_entry {
 	char name[PATH_MAX];
-	off_t size;
+	uintmax_t size;
 	ino_t inode;
 	time_t time;
 	uid_t uid;
@@ -226,7 +227,7 @@ static int ls_other(struct ls_entry *current, int cpos)
 				printf("%-*s ", longestgroup, current->group);
 		}
 
-		printf("%*u ", sizelen, (unsigned int)current->size);
+		printf("%*ju ", sizelen, (uintmax_t)current->size);
 		printf("%s %s", time, current->name);
 
 		if (links != LLONG && current->type == 'l')
